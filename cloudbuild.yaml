@@ -1,0 +1,27 @@
+substitutions:
+  _REGION: australia-southeast1
+  _REPOSITORY: dataexplorer
+  _SERVICE: dataexplorer-api
+  _UI_SERVICE: dataexplorer-ui
+  _ADMIN_UI_SERVICE: dataexplorer-observability
+steps:
+  - name: ghcr.io/astral-sh/uv:0.8-python3.11-bookworm-slim
+    entrypoint: bash
+    args: ["-c", "uv sync --frozen --dev && uv run pytest --basetemp .pytest-tmp"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: ["run", "services", "update", "${_SERVICE}", "--region", "${_REGION}", "--image", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA", "--quiet"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: ["run", "services", "update", "${_UI_SERVICE}", "--region", "${_REGION}", "--image", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA", "--quiet"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: ["run", "services", "update", "${_ADMIN_UI_SERVICE}", "--region", "${_REGION}", "--image", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA", "--quiet"]
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA"
+options:
+  logging: CLOUD_LOGGING_ONLY

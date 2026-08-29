@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+.artifacts/
+.uv-cache/
+.pytest-tmp/
+.terraform/
+.terraform-plugin-cache/
+*.tfstate
+*.tfstate.*
+crash.log

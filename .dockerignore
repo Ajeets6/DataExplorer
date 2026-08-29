@@ -1,0 +1,9 @@
+.git
+.venv
+.uv-cache
+.artifacts
+.pytest-tmp
+__pycache__
+*.pyc
+tests
+infra

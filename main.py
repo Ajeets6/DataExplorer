@@ -1,5 +1,4 @@
-def main():
-    print("Hello from dataexplorer!")
+from dataexplorer.__main__ import main
 
 
 if __name__ == "__main__":
