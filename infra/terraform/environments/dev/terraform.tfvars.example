@@ -1,0 +1,9 @@
+project_id = "my-gcp-project"
+region     = "australia-southeast1"
+image      = "australia-southeast1-docker.pkg.dev/my-gcp-project/dataexplorer/dataexplorer-api:sha"
+oidc_jwks_url = "https://identity.example.com/.well-known/jwks.json"
+oidc_issuer   = "https://identity.example.com/"
+oidc_audience = "dataexplorer-api"
+qdrant_url     = "https://your-cluster.region.qdrant.io:6333"
+# Set true only after database/OpenAI/Qdrant secret versions have been added.
+deploy_workloads = false

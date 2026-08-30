@@ -1,0 +1,10 @@
+project_id      = "my-production-project"
+region          = "australia-southeast1"
+image           = "australia-southeast1-docker.pkg.dev/my-production-project/dataexplorer/dataexplorer-api:sha"
+billing_account = "000000-000000-000000"
+oidc_jwks_url    = "https://identity.example.com/.well-known/jwks.json"
+oidc_issuer      = "https://identity.example.com/"
+oidc_audience    = "dataexplorer-api"
+qdrant_url       = "https://your-cluster.region.qdrant.io:6333"
+# Set true only after database/OpenAI/Qdrant secret versions have been added.
+deploy_workloads = false
