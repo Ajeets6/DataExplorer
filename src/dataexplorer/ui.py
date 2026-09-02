@@ -74,15 +74,14 @@ def main() -> None:
     _theme()
     client, workspace = _connection_panel()
     workspace_label = (
-        f"{workspace.get('tenant_id')} · {workspace.get('user_id')}"
+        f"{workspace.get('tenant_id')} / {workspace.get('user_id')}"
         if workspace else "Workspace unavailable"
     )
     st.markdown(
         f"""
         <div class="masthead">
-          <div><span class="eyebrow">GOVERNED INTELLIGENCE</span>
-          <h1>Data Explorer</h1></div>
-          <div class="status-pill"><span></span> {workspace_label}</div>
+          <div class="brand"><span class="brand-mark">D</span><h1>Data Explorer</h1></div>
+          <div class="workspace-meta"><span>Workspace</span><strong>{workspace_label}</strong></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -127,7 +126,7 @@ def _connection_panel() -> tuple[ApiClient, dict[str, Any] | None]:
 def _ask(client: ApiClient) -> None:
     left, right = st.columns([1.55, 0.65], gap="large")
     with left:
-        st.markdown("## Ask your governed knowledge base")
+        st.markdown("## Knowledge assistant")
         st.caption("Answers are generated only from evidence you are authorized to retrieve.")
         history = st.session_state.setdefault("chat_history", [])
         for message in history:
@@ -144,14 +143,14 @@ def _ask(client: ApiClient) -> None:
             except RuntimeError as error:
                 st.error(str(error))
     with right:
-        st.markdown("### Answer contract")
-        _contract_item("01", "Authorized evidence", "Tenant and group filters run before generation.")
-        _contract_item("02", "Visible provenance", "Every grounded response carries source citations.")
-        _contract_item("03", "Fail closed", "Insufficient evidence or an ineligible model route stops the answer.")
+        st.markdown("### Response controls")
+        _contract_item("Authorized evidence", "Tenant and group filters run before generation.")
+        _contract_item("Visible provenance", "Every grounded response carries source citations.")
+        _contract_item("Fail closed", "Insufficient evidence or an ineligible model route stops the answer.")
 
 
 def _knowledge(client: ApiClient) -> None:
-    st.markdown("## Add governed knowledge")
+    st.markdown("## Knowledge ingestion")
     st.caption("Register clean text with explicit access, classification, trust, and version metadata.")
     with st.form("knowledge-form"):
         a, b = st.columns(2)
@@ -182,10 +181,10 @@ def _knowledge(client: ApiClient) -> None:
 
 
 def _publish(client: ApiClient) -> None:
-    st.markdown("## Publish an executive-ready artifact")
+    st.markdown("## Artifact publishing")
     create, review, render = st.columns(3, gap="large")
     with create:
-        st.markdown("### 1 · Draft")
+        st.markdown("### Draft")
         title = st.text_input("Artifact title", "Quarterly operating brief")
         summary = st.text_area("Grounded summary", "Resolution time improved across the measured quarter.")
         source_id = st.text_input("Source ID", "ops")
@@ -210,7 +209,7 @@ def _publish(client: ApiClient) -> None:
             }
             _action(client, "POST", "/v1/artifacts", payload, "artifact_draft")
     with review:
-        st.markdown("### 2 · Review")
+        st.markdown("### Review")
         artifact_id = st.text_input("Artifact ID", key="review-artifact")
         reason = st.text_area("Decision rationale", "Sources and claims reconciled.")
         decision = st.segmented_control("Decision", ["Approve", "Reject"], default="Approve")
@@ -220,7 +219,7 @@ def _publish(client: ApiClient) -> None:
             }, "artifact_decision")
         st.caption("The API rejects self-approval even if this screen is used by the requester.")
     with render:
-        st.markdown("### 3 · Render")
+        st.markdown("### Render")
         render_id = st.text_input("Approved artifact ID", key="render-artifact")
         if st.button("Render governed output", use_container_width=True):
             _action(client, "POST", f"/v1/artifacts/{render_id}/render", None, "artifact_render")
@@ -231,7 +230,7 @@ def _publish(client: ApiClient) -> None:
 
 
 def _structured_data(client: ApiClient) -> None:
-    st.markdown("## Governed structured-data query")
+    st.markdown("## Structured data")
     st.caption("SQL is proposed, independently approved, validated, cost-bounded, and executed read-only.")
     a, b, c = st.columns(3, gap="large")
     with a:
@@ -255,10 +254,10 @@ def _structured_data(client: ApiClient) -> None:
 
 
 def _evaluate(client: ApiClient) -> None:
-    st.markdown("## Evaluation studio")
+    st.markdown("## Evaluation")
     st.caption("Run a small golden set and inspect grounding, citations, latency, and provider selection.")
     questions = st.text_area(
-        "Questions — one per line",
+        "Questions, one per line",
         "What travel is reimbursable?\nWhat evidence supports the answer?",
         height=130,
     )
@@ -326,9 +325,9 @@ def _action(client: ApiClient, method: str, path: str, payload: dict[str, Any] |
         st.error(str(error))
 
 
-def _contract_item(number: str, title: str, body: str) -> None:
+def _contract_item(title: str, body: str) -> None:
     st.markdown(
-        f"<div class='contract'><span>{number}</span><div><b>{title}</b><p>{body}</p></div></div>",
+        f"<div class='contract'><div><b>{title}</b><p>{body}</p></div></div>",
         unsafe_allow_html=True,
     )
 
@@ -341,45 +340,178 @@ def _theme() -> None:
     st.markdown(
         """
         <style>
-        :root { --ink:#10232c; --muted:#5d6d75; --paper:#f7f5ef; --line:#d8ddd9; --cyan:#008f94; --lime:#b8dc68; --white:#ffffff; }
-        html, body, .stApp, [data-testid="stAppViewContainer"] { background:var(--paper); color:var(--ink); }
+        :root {
+          --navy:#142b3d;
+          --navy-hover:#1e3a4f;
+          --ink:#17242d;
+          --muted:#5e6c76;
+          --surface:#ffffff;
+          --canvas:#f4f6f7;
+          --line:#dce2e5;
+          --line-strong:#c8d1d6;
+          --accent:#087f8c;
+          --accent-soft:#eaf5f6;
+          --success:#26734d;
+        }
+        html, body, .stApp, [data-testid="stAppViewContainer"] {
+          background:var(--canvas);
+          color:var(--ink);
+          font-family:Aptos, "Segoe UI", Arial, sans-serif;
+        }
         [data-testid="stHeader"] { background:transparent; height:0; }
         [data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu { display:none !important; }
-        [data-testid="stSidebar"] { background:#10232c; color:#eef4ef; border-right:1px solid #23404a; }
-        [data-testid="stSidebar"] * { color:#eef4ef !important; }
-        [data-testid="stSidebar"] input { color:#10232c !important; background:#f6f5ef !important; }
-        .block-container { max-width:1320px; padding-top:2.25rem; padding-bottom:4rem; }
-        .masthead { display:flex; align-items:end; justify-content:space-between; padding:0 0 1.25rem; border-bottom:1px solid var(--line); margin-bottom:1rem; }
-        .masthead h1 { font-family:Georgia,serif; font-size:3.45rem; letter-spacing:-.055em; line-height:.9; margin:.28rem 0 0; color:var(--ink); }
-        .eyebrow { color:var(--cyan); font-size:.72rem; font-weight:800; letter-spacing:.18em; }
-        .status-pill { border:1px solid var(--line); border-radius:999px; padding:.55rem .9rem; font-size:.78rem; background:#fff; }
-        .status-pill span { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--lime); margin-right:.45rem; }
+        [data-testid="stSidebar"] { background:var(--navy); color:#f3f7f8; border-right:0; }
+        [data-testid="stSidebar"] * { color:#f3f7f8 !important; }
+        [data-testid="stSidebar"] input { color:var(--ink) !important; background:#fff !important; }
+        [data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color:#bdcbd2 !important; }
+        .block-container { max-width:1280px; padding:1.4rem 2.5rem 4rem; }
+        .masthead {
+          min-height:72px;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:2rem;
+          padding:0 0 1.15rem;
+          border-bottom:1px solid var(--line-strong);
+          margin-bottom:.15rem;
+        }
+        .brand { display:flex; align-items:center; gap:.8rem; min-width:0; }
+        .brand-mark {
+          width:34px;
+          height:34px;
+          display:grid;
+          place-items:center;
+          flex:0 0 auto;
+          border-radius:7px;
+          background:var(--navy);
+          color:#fff;
+          font-size:.96rem;
+          font-weight:750;
+        }
+        .masthead h1 {
+          margin:0;
+          color:var(--navy);
+          font-size:1.45rem;
+          font-weight:720;
+          letter-spacing:-.025em;
+          line-height:1.1;
+        }
+        .workspace-meta { display:flex; flex-direction:column; align-items:flex-end; line-height:1.25; }
+        .workspace-meta span { color:var(--muted); font-size:.7rem; font-weight:650; text-transform:uppercase; letter-spacing:.07em; }
+        .workspace-meta strong { color:var(--ink); font-size:.83rem; font-weight:650; }
         h1, h2, h3, p, label, [data-testid="stCaptionContainer"] { color:var(--ink); }
-        h2 { font-family:Georgia,serif !important; letter-spacing:-.025em !important; }
-        button[kind="primary"] { background:var(--ink) !important; border-color:var(--ink) !important; }
-        [data-baseweb="tab-list"] { gap:1.5rem; border-bottom:1px solid var(--line); }
-        [data-baseweb="tab"] { padding-left:0 !important; padding-right:0 !important; }
-        [data-baseweb="tab"] p { color:#62727a !important; font-weight:650; }
-        [data-baseweb="tab"][aria-selected="true"] p { color:var(--ink) !important; }
+        h2 { font-size:1.7rem !important; font-weight:700 !important; letter-spacing:-.025em !important; margin-top:1.9rem !important; }
+        h3 { font-size:1rem !important; font-weight:700 !important; letter-spacing:-.01em !important; }
+        [data-testid="stCaptionContainer"] { color:var(--muted) !important; line-height:1.5; }
+        button { border-radius:7px !important; min-height:2.55rem; font-weight:650 !important; }
+        button[kind="primary"] {
+          background:var(--navy) !important;
+          border-color:var(--navy) !important;
+          color:#fff !important;
+        }
+        button[kind="primary"] p, button[kind="primary"] span { color:#fff !important; }
+        button[kind="primary"]:hover:not(:disabled) {
+          background:var(--navy-hover) !important;
+          border-color:var(--navy-hover) !important;
+          color:#fff !important;
+        }
+        button[kind="primary"]:disabled,
+        button:disabled {
+          background:#e1e6e9 !important;
+          border-color:#c8d1d6 !important;
+          color:#485760 !important;
+          opacity:1 !important;
+          cursor:not-allowed !important;
+        }
+        button[kind="primary"]:disabled p, button[kind="primary"]:disabled span,
+        button:disabled p, button:disabled span { color:#485760 !important; }
+        [data-testid="stBaseButton-secondary"] {
+          background:var(--surface) !important;
+          border:1px solid var(--line-strong) !important;
+          color:var(--navy) !important;
+        }
+        [data-testid="stBaseButton-secondary"] p,
+        [data-testid="stBaseButton-secondary"] span { color:var(--navy) !important; }
+        [data-testid="stBaseButton-secondary"]:hover:not(:disabled) {
+          background:var(--accent-soft) !important;
+          border-color:var(--accent) !important;
+        }
+        [data-testid="stButtonGroup"] button,
+        [data-testid="stSegmentedControl"] button {
+          min-height:2rem !important;
+          background:var(--surface) !important;
+          border-color:var(--line-strong) !important;
+          color:var(--navy) !important;
+        }
+        [data-testid="stButtonGroup"] button p,
+        [data-testid="stButtonGroup"] button span,
+        [data-testid="stSegmentedControl"] button p,
+        [data-testid="stSegmentedControl"] button span { color:var(--navy) !important; }
+        [data-testid="stButtonGroup"] button:hover:not(:disabled),
+        [data-testid="stSegmentedControl"] button:hover:not(:disabled) {
+          background:var(--accent-soft) !important;
+          border-color:var(--accent) !important;
+        }
+        [data-testid="stButtonGroup"] button[aria-checked="true"],
+        [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+        [data-testid="stSegmentedControl"] button[data-selected="true"] {
+          background:var(--accent-soft) !important;
+          border-color:var(--accent) !important;
+          box-shadow:inset 0 0 0 1px var(--accent) !important;
+        }
+        [data-testid="stButtonGroup"] button[aria-checked="true"] p,
+        [data-testid="stButtonGroup"] button[aria-checked="true"] span,
+        [data-testid="stSegmentedControl"] button[aria-pressed="true"] p,
+        [data-testid="stSegmentedControl"] button[aria-pressed="true"] span,
+        [data-testid="stSegmentedControl"] button[data-selected="true"] p,
+        [data-testid="stSegmentedControl"] button[data-selected="true"] span {
+          color:#075f68 !important;
+          font-weight:700 !important;
+        }
+        button:focus-visible, input:focus-visible, textarea:focus-visible, [role="tab"]:focus-visible {
+          outline:3px solid rgba(8,127,140,.28) !important;
+          outline-offset:2px !important;
+        }
+        [data-baseweb="tab-list"] { gap:1.75rem; border-bottom:1px solid var(--line-strong); }
+        [data-baseweb="tab"] { min-height:3.25rem; padding-left:.1rem !important; padding-right:.1rem !important; }
+        [data-baseweb="tab"] p { color:var(--muted) !important; font-size:.88rem; font-weight:650; }
+        [data-baseweb="tab"][aria-selected="true"] p { color:var(--navy) !important; }
+        [data-baseweb="tab-highlight"], .react-aria-SelectionIndicator {
+          background-color:var(--accent) !important;
+          border-color:var(--accent) !important;
+          height:2px !important;
+        }
         [data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea,
         [data-testid="stChatInput"] textarea, [data-baseweb="select"] > div {
-          background:var(--white) !important; color:var(--ink) !important;
-          border-color:#cbd3cf !important;
+          background:var(--surface) !important; color:var(--ink) !important;
+          border-color:var(--line-strong) !important;
+          border-radius:7px !important;
         }
         [data-testid="stTextInput"] input::placeholder, [data-testid="stTextArea"] textarea::placeholder,
-        [data-testid="stChatInput"] textarea::placeholder { color:#718087 !important; opacity:1; }
-        [data-testid="stChatInput"] { background:var(--white) !important; border:1px solid #cbd3cf !important; }
+        [data-testid="stChatInput"] textarea::placeholder { color:#707d86 !important; opacity:1; }
+        [data-testid="stChatInput"] { background:var(--surface) !important; border:1px solid var(--line-strong) !important; border-radius:9px !important; }
         [data-testid="stChatInput"] > div, [data-testid="stChatInput"] div[data-baseweb="base-input"] {
-          background:var(--white) !important;
+          background:var(--surface) !important;
         }
-        .contract { display:flex; gap:1rem; border-top:1px solid var(--line); padding:1rem 0; }
-        .contract>span { color:var(--cyan); font-family:monospace; font-size:.75rem; }
-        .contract p { color:var(--muted); line-height:1.45; margin:.25rem 0 0; font-size:.88rem; }
-        .guardrail { background:#17313b; border-left:3px solid var(--lime); padding:1rem; color:#dce9e4; font-size:.84rem; line-height:1.5; }
-        [data-testid="stMetric"] { background:#fff; border:1px solid var(--line); padding:1rem; }
-        [data-testid="stForm"], [data-testid="stExpander"] { background:rgba(255,255,255,.55); border-color:var(--line); }
-        [data-testid="stDataFrame"] { border:1px solid var(--line); background:var(--white); }
-        @media (max-width: 760px) { .masthead h1 { font-size:2.45rem; } .status-pill { display:none; } }
+        .contract { border-top:1px solid var(--line); padding:1rem 0; }
+        .contract b { color:var(--navy); font-size:.9rem; }
+        .contract p { color:var(--muted); line-height:1.48; margin:.3rem 0 0; font-size:.84rem; }
+        .guardrail { background:#1c384b; border-left:3px solid #62b6b1; padding:1rem; color:#e5edef; font-size:.84rem; line-height:1.5; border-radius:0 7px 7px 0; }
+        [data-testid="stMetric"] { background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:1rem; box-shadow:0 1px 2px rgba(20,43,61,.04); }
+        [data-testid="stForm"], [data-testid="stExpander"] { background:var(--surface); border:1px solid var(--line); border-radius:9px; }
+        [data-testid="stForm"] { padding:1.2rem 1.25rem .35rem; }
+        [data-testid="stDataFrame"] { border:1px solid var(--line); background:var(--surface); border-radius:8px; overflow:hidden; }
+        [data-testid="stAlert"] { border-radius:8px; }
+        hr { border-color:rgba(255,255,255,.16) !important; }
+        @media (max-width: 767px) {
+          .block-container { padding:1rem 1rem 3rem; }
+          .masthead { min-height:60px; gap:1rem; }
+          .masthead h1 { font-size:1.2rem; }
+          .brand-mark { width:31px; height:31px; }
+          .workspace-meta { display:none; }
+          [data-baseweb="tab-list"] { gap:1.1rem; overflow-x:auto; }
+          h2 { font-size:1.45rem !important; }
+        }
         </style>
         """,
         unsafe_allow_html=True,

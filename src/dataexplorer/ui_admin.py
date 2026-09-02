@@ -19,9 +19,8 @@ def main() -> None:
     st.markdown(
         """
         <div class="masthead">
-          <div><span class="eyebrow">CONTROL PLANE</span>
-          <h1>LLM observability</h1></div>
-          <div class="status-pill"><span></span> Sanitized telemetry</div>
+          <div class="brand"><span class="brand-mark">D</span><h1>LLM observability</h1></div>
+          <div class="workspace-meta"><span>Environment</span><strong>Data Explorer</strong></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -30,7 +29,7 @@ def main() -> None:
         st.error("The workspace context server could not be reached.")
         return
     st.caption(
-        f"Tenant {context['tenant_id']} · signed in as {context['user_id']} · "
+        f"Tenant {context['tenant_id']} / signed in as {context['user_id']} / "
         "prompt and response bodies are not retained"
     )
     if not context.get("can_observe"):
