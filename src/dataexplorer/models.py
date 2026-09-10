@@ -19,6 +19,10 @@ class WorkspaceContext(BaseModel):
     groups: list[str]
     auth_mode: Literal["development", "jwt"]
     can_observe: bool
+    can_review_reports: bool = False
+    environment: str = "development"
+    persistent: bool = False
+    report_formats: list[str] = Field(default_factory=lambda: ["docx"])
 
 
 class DocumentIn(BaseModel):

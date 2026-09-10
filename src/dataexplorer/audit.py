@@ -36,6 +36,11 @@ class InMemoryAuditSink:
             event for event in reversed(self.events) if event.tenant_id == tenant_id
         ][:limit]
 
+    async def query_events(self, tenant_id, start, end, search="", offset=0, limit=26):
+        rows = [e for e in self.events if e.tenant_id == tenant_id and start <= e.occurred_at < end
+                and search.casefold() in f"{e.user_id} {e.action} {e.decision} {e.correlation_id}".casefold()]
+        return sorted(rows, key=lambda e: (e.occurred_at, e.event_id), reverse=True)[offset:offset+limit]
+
 
 def make_audit_event(
     *,

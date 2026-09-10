@@ -58,6 +58,22 @@ class InMemoryArtifactRepository:
             raise ArtifactPolicyError("artifact draft was not found")
         return draft
 
+    async def list_for(self, access: AccessContext, *, approver: bool = False,
+                       search: str = "", offset: int = 0, limit: int = 25,
+                       status: str = "", mine: bool = False, review_queue: bool = False) -> list[ArtifactDraft]:
+        rows = [d for d in self.drafts.values() if d.tenant_id == access.tenant_id
+                and (d.requested_by == access.user_id or approver)
+                and search.casefold() in d.spec.title.casefold()
+                and (not status or d.status == status)
+                and (not mine or d.requested_by == access.user_id)
+                and (not review_queue or (approver and d.requested_by != access.user_id and d.status == "pending"))]
+        return sorted(rows, key=lambda d: (d.created_at, d.artifact_id), reverse=True)[offset:offset + limit]
+
+    async def summary(self, access, approver):
+        rows = [d for d in self.drafts.values() if d.tenant_id == access.tenant_id]
+        return {"my_reports": sum(d.requested_by == access.user_id for d in rows),
+                "awaiting_review": sum(approver and d.requested_by != access.user_id and d.status == "pending" for d in rows)}
+
 
 @dataclass(slots=True)
 class ArtifactService:
@@ -168,6 +184,15 @@ class GcsArtifactPublisher:
 
     async def publish(self, source: Path, object_name: str) -> str:
         return await asyncio.to_thread(self._publish, source, object_name)
+
+    async def download(self, locator: str) -> bytes:
+        prefix = f"gs://{self.bucket_name}/"
+        if not locator.startswith(prefix):
+            raise ArtifactPolicyError("report storage does not match the configured bucket")
+        from google.cloud import storage
+        return await asyncio.to_thread(
+            storage.Client().bucket(self.bucket_name).blob(locator[len(prefix):]).download_as_bytes
+        )
 
     def _publish(self, source: Path, object_name: str) -> str:
         from google.cloud import storage
@@ -308,7 +333,8 @@ def _add_memo_masthead(document: Document, draft: ArtifactDraft) -> None:
     run.bold = True
     run.font.name = "Calibri"
     run.font.size = Pt(24)
-    subtitle = document.add_paragraph(spec.subtitle)
+    subtitle = document.add_paragraph()
+    subtitle.add_run(spec.subtitle)
     subtitle.paragraph_format.space_after = Pt(14)
     subtitle.runs[0].font.size = Pt(13)
     subtitle.runs[0].font.color.rgb = RGBColor.from_string("444444")

@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 import time
+from contextvars import ContextVar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -55,6 +56,12 @@ class InMemoryLlmTraceStore:
             event for event in reversed(self.events) if event.tenant_id == tenant_id
         ][:limit]
 
+    async def query_traces(self, tenant_id, start, end, provider="", model=""):
+        return sorted([e for e in self.events if e.tenant_id == tenant_id
+                       and start <= e.occurred_at < end
+                       and (not provider or e.provider == provider)
+                       and (not model or e.model == model)], key=lambda e: e.occurred_at, reverse=True)
+
 
 @dataclass(frozen=True, slots=True)
 class PricingCatalog:
@@ -86,7 +93,8 @@ class ObservabilitySummary(BaseModel):
     total_tokens: int
     estimated_cost_usd: float
     unpriced_requests: int
-    grounded_rate: float
+    grounded_rate: float | None
+    grounded_samples: int = 0
     average_latency_ms: float
 
 
@@ -104,8 +112,9 @@ def summarize_traces(events: list[LlmTraceEvent]) -> ObservabilitySummary:
         unpriced_requests=count - len(priced),
         grounded_rate=(
             round(sum(bool(event.grounded) for event in grounded) / len(grounded), 4)
-            if grounded else 0
+            if grounded else None
         ),
+        grounded_samples=len(grounded),
         average_latency_ms=(
             round(sum(event.latency_ms for event in events) / count, 2) if count else 0
         ),

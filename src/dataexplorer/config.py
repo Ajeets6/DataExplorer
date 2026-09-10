@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     llm_input_cost_per_million_usd: dict[str, float] = {"ollama": 0.0}
     llm_output_cost_per_million_usd: dict[str, float] = {"ollama": 0.0}
     telemetry_retention_days: int = Field(default=30, ge=1, le=2555)
+    sql_schemas: dict[str, dict] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def production_requires_oidc(self) -> "Settings":

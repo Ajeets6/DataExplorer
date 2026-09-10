@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 import time
+import httpx
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
@@ -24,6 +25,8 @@ from dataexplorer.auth import (
     JwtAuthenticator,
 )
 from dataexplorer.config import Settings, get_settings
+from dataexplorer.workspace import WorkspaceRecord, WorkspaceStore, register_workspace_routes
+from dataexplorer.telemetry import instrument_provider, attempt_context, register_telemetry_routes
 from dataexplorer.models import (
     AccessContext,
     ArtifactApprovalIn,
@@ -81,6 +84,7 @@ from dataexplorer.text2sql import (
     SqlExecutionError,
     SqlPolicyError,
     Text2SqlService,
+    SchemaPolicy,
 )
 
 
@@ -245,6 +249,11 @@ def create_app(
             if settings.persistence_mode == "postgres" and database_dsn
             else InMemoryAuditSink()
         )
+        application.state.workspace_store = WorkspaceStore(
+            database_dsn if settings.persistence_mode == "postgres" else None
+        )
+        application.state.environment = settings.environment
+        application.state.persistent = settings.persistence_mode == "postgres"
         application.state.trace_store = trace_store or (
             PostgresLlmTraceStore(database_dsn)
             if settings.persistence_mode == "postgres" and database_dsn
@@ -255,9 +264,15 @@ def create_app(
             output_per_million_usd=settings.llm_output_cost_per_million_usd,
         )
         application.state.auth_mode = settings.auth_mode
+        original_provider = application.state.rag_service.provider
+        application.state.rag_service.provider = instrument_provider(
+            original_provider, application.state.trace_store, application.state.pricing
+        )
         application.state.observability_admin_groups = settings.observability_admin_groups
         application.state.text2sql_service = text2sql_service or Text2SqlService(
             provider=application.state.rag_service.provider,
+            schemas={name: SchemaPolicy.model_validate({**policy, "schema_name": name})
+                     for name, policy in settings.sql_schemas.items()},
             executor=(
                 PostgresReadOnlyExecutor(database_dsn)
                 if settings.persistence_mode == "postgres" and database_dsn
@@ -272,10 +287,18 @@ def create_app(
         application.state.artifact_service = artifact_service or build_artifact_service(
             settings
         )
+        original_sql_provider = text2sql_service.provider if text2sql_service else None
+        if text2sql_service:
+            text2sql_service.provider = instrument_provider(
+                text2sql_service.provider, application.state.trace_store, application.state.pricing
+            )
         application.state.metrics = MetricsRegistry()
         try:
             yield
         finally:
+            application.state.rag_service.provider = original_provider
+            if text2sql_service:
+                text2sql_service.provider = original_sql_provider
             if isinstance(application.state.policy_enforcer, RedisPolicyEnforcer):
                 await application.state.policy_enforcer.redis.aclose()
             retriever = application.state.rag_service.retriever
@@ -337,6 +360,10 @@ def create_app(
             groups=sorted(access.groups),
             auth_mode=request.app.state.auth_mode,
             can_observe=_is_observability_admin(request, access),
+            can_review_reports=_artifacts(request).approver_group in access.groups,
+            environment=request.app.state.environment,
+            persistent=request.app.state.persistent,
+            report_formats=sorted(_artifacts(request).renderers),
         )
 
     @application.post(
@@ -363,6 +390,12 @@ def create_app(
             "allowed",
             {"document_id": document.document_id, "chunk_count": result.chunk_count},
         )
+        await request.app.state.workspace_store.save(WorkspaceRecord(
+            record_id=document.document_id, tenant_id=access.tenant_id,
+            owner=access.user_id, kind="document", title=document.title,
+            groups=sorted(document.allowed_groups),
+            payload={**document.model_dump(mode="json"), "status": "indexed", "chunk_count": result.chunk_count},
+        ))
         return result
 
     @application.post("/v1/query", response_model=QueryResponse, tags=["query"])
@@ -381,6 +414,9 @@ def create_app(
         except ProviderPolicyError as error:
             await _audit(request, access, "rag.query", "blocked", {"reason": str(error)})
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
+        except (httpx.HTTPError, RuntimeError):
+            await _audit(request, access, "rag.query", "failed", {})
+            raise HTTPException(503, "The model service is temporarily unavailable") from None
         await _audit(
             request,
             access,
@@ -418,6 +454,11 @@ def create_app(
                     reflection_attempts=result.reflection_attempts,
                 )
             )
+        await request.app.state.workspace_store.save(WorkspaceRecord(
+            tenant_id=access.tenant_id, owner=access.user_id, kind="answer",
+            title=payload.question[:200], private=True,
+            payload={"question": payload.question, "response": result.model_dump(mode="json")},
+        ))
         return result
 
     @application.get("/v1/observability/summary", tags=["observability"])
@@ -427,7 +468,7 @@ def create_app(
     ):
         _require_observability_admin(request, access)
         traces = await request.app.state.trace_store.list_traces(access.tenant_id, 10_000)
-        return summarize_traces(traces)
+        return summarize_traces([trace for trace in traces if not trace.operation.endswith(".attempt")])
 
     @application.get("/v1/observability/traces", tags=["observability"])
     async def observability_traces(
@@ -462,6 +503,8 @@ def create_app(
         traces = await request.app.state.trace_store.list_traces(access.tenant_id, 10_000)
         users: dict[str, dict[str, object]] = {}
         for trace in traces:
+            if trace.operation.endswith(".attempt"):
+                continue
             item = users.setdefault(trace.user_id, {
                 "user_id": trace.user_id,
                 "requests": 0,
@@ -566,6 +609,11 @@ def create_app(
                 "truncated": result.truncated,
             },
         )
+        await request.app.state.workspace_store.save(WorkspaceRecord(
+            record_id=result.proposal_id, tenant_id=access.tenant_id, owner=access.user_id,
+            kind="result", title=f"Analysis result • {result.executed_at:%d %b %Y}", private=True,
+            payload=result.model_dump(mode="json"),
+        ))
         return result
 
     @application.post(
@@ -650,6 +698,8 @@ def create_app(
         )
         return draft
 
+    register_workspace_routes(application, _access_context)
+    register_telemetry_routes(application, _access_context, _require_observability_admin)
     return application
 
 
@@ -700,6 +750,8 @@ async def _access_context(
 
 
 async def _enforce(request: Request, access: AccessContext, text: str) -> None:
+    attempt_context.set({"correlation_id": request.state.correlation_id, "access": access,
+                         "operation": "sql.propose" if request.url.path == "/v1/sql/proposals" else "rag.query"})
     try:
         await request.app.state.policy_enforcer.enforce(access, text)
     except RateLimitError as error:

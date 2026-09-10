@@ -135,6 +135,11 @@ class InMemorySqlProposalRepository:
             raise SqlApprovalError("SQL proposal was not found")
         return proposal
 
+    async def list_for(self, access: AccessContext, schemas: list[str]) -> list[SqlProposal]:
+        rows = [p for p in self.proposals.values()
+                if p.tenant_id == access.tenant_id and p.schema_name in schemas]
+        return sorted(rows, key=lambda p: p.created_at, reverse=True)[:100]
+
 
 @dataclass(slots=True)
 class Text2SqlService:

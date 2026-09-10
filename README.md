@@ -28,6 +28,34 @@ for the observability console at `http://127.0.0.1:8502` (requires
 `observability-admins` or `platform-admins`). Use `docker compose up` to start
 both UIs, the API, and supporting services.
 
+The employee workspace opens on Overview with live counts, recent work, and
+review actions. Knowledge, saved answers, analyses, reports, and approvals have
+dedicated pages. Reports can be inspected, independently approved or rejected,
+rendered, and downloaded without copying identifiers. Text/Markdown uploads are
+limited to 1 MB; unsupported binary formats are not advertised as available.
+
+The admin console provides UTC date filters, period comparisons, generation
+trends, request details, sanitized CSV exports, cost coverage, audit search, and
+quality checks. Missing metrics display as unavailable or not applicable rather
+than a measured zero. Token/cost totals separate attempts from request summaries.
+
+Production must apply both `migrations/001_governance.sql` and
+`migrations/002_workspace.sql`. The included migration worker applies all SQL
+files in order. With PostgreSQL enabled, workspace records persist across API
+restarts; development memory mode persists only for the running API process.
+
+For enterprise UI sign-in, configure an OIDC identity gateway to forward a signed
+`Authorization: Bearer ...` token over the Streamlit connection. The FastAPI
+server independently validates that token. Set `DATAEXPLORER_AUTH_MODE=jwt` on
+both UI services and configure `DATAEXPLORER_LOGIN_URL` to the gateway's HTTPS
+sign-in URL. Direct ingress and token issuer/audience alignment must be validated
+in the deployment; the app does not invent identity from unverified proxy claims.
+
+Approved analysis schemas can be supplied as `DATAEXPLORER_SQL_SCHEMAS`, a JSON
+object keyed by schema name with `tables`, `allowed_groups`, and `approver_group`.
+Only configured sources allowed by the caller's groups appear in Analyses.
+Do not point the analysis executor at ungoverned production tables.
+
 Header-based identity is development-only; staging and production require
 validated JWT claims.
 
