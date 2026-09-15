@@ -182,13 +182,14 @@ def _overview(client, workspace):
             st.rerun()
         return
     cols = st.columns(4)
-    for col, title, key, destination in zip(cols,
+    for col, title, key, destination, action_label in zip(cols,
         ["Awaiting your review", "Your reports", "Saved answers", "Accessible documents"],
         ["awaiting_review", "my_reports", "saved_answers", "documents"],
-        ["Approvals", "Reports", "Ask", "Knowledge"]):
+        ["Approvals", "Reports", "Ask", "Knowledge"],
+        ["Review reports", "View reports", "View answers", "Browse documents"]):
         with col, st.container(border=True):
             st.metric(title, summary[key])
-            if st.button("View " + title.lower(), key=key, use_container_width=True):
+            if st.button(action_label, key=key, use_container_width=True):
                 _go(destination, mine="true" if key == "my_reports" else "")
     st.caption("Live workspace totals · Updated " + _date(summary["updated_at"]))
     left, right = st.columns([2.2, 1], gap="large")
@@ -345,6 +346,14 @@ def _reports(client, workspace, approvals=False):
     if approvals and not workspace.get("can_review_reports"):
         _empty("No review access", "Your workspace role does not include report approval.")
         return
+    selected = st.query_params.get("record")
+    if selected:
+        if st.button("Back to " + ("approval queue" if approvals else "reports"), icon=":material/arrow_back:"):
+            _go("Approvals" if approvals else "Reports")
+        draft = _load(client, f"/v1/artifacts/{quote(selected, safe='')}")
+        if draft:
+            _report_detail(client, workspace, draft)
+        return
     if not approvals and st.toggle("Create a report", value=st.query_params.get("create") == "true"):
         _create_report(client, workspace)
     search_col, status_col = st.columns([3, 1])
@@ -370,28 +379,28 @@ def _reports(client, workspace, approvals=False):
             _go("Approvals" if approvals else "Reports", chosen)
     if response["has_more"]:
         st.caption("More reports are available on the next page.")
-    selected = st.query_params.get("record")
-    if selected:
-        draft = _load(client, f"/v1/artifacts/{quote(selected, safe='')}")
-        if draft:
-            _report_detail(client, workspace, draft)
 
 
 def _create_report(client, workspace):
+    revision = st.session_state.get("revision_draft", {})
+    original = revision.get("spec", {})
     sources = _load(client, "/v1/library/document?limit=100")
     if sources is None:
         return
     docs = {row["record_id"]: row["title"] for row in sources["items"]}
     with st.form("new-report"):
         st.subheader("New report")
-        title = st.text_input("Report title", placeholder="Quarterly operating brief")
+        title = st.text_input("Report title", value=original.get("title", ""), placeholder="Quarterly operating brief")
         a, b = st.columns(2)
-        audience = a.text_input("Audience", placeholder="Operations leadership")
-        purpose = b.text_input("Purpose", placeholder="Support the quarterly review")
-        summary = st.text_area("Report content", height=180, placeholder="Write the summary your evidence supports.")
-        selected = st.multiselect("Supporting documents", list(docs), format_func=docs.get)
+        audience = a.text_input("Audience", value=original.get("audience", ""), placeholder="Operations leadership")
+        purpose = b.text_input("Purpose", value=original.get("purpose", ""), placeholder="Support the quarterly review")
+        summary = st.text_area("Report content", value=original.get("sections", [{}])[0].get("summary", ""), height=180, placeholder="Write the summary your evidence supports.")
+        selected = st.multiselect("Supporting documents", list(docs),
+            default=[s["source_id"] for s in original.get("sources", []) if s["source_id"] in docs], format_func=docs.get)
         kind = st.selectbox("Format", workspace.get("report_formats", ["docx"]), format_func=str.upper)
-        classification = st.selectbox("Report classification", ["internal", "public", "confidential", "restricted"])
+        classifications = ["internal", "public", "confidential", "restricted"]
+        classification = st.selectbox("Report classification", classifications,
+            index=classifications.index(original.get("classification", "internal")))
         st.caption("The report goes to an independent reviewer. Check every claim against the selected sources.")
         submit = st.form_submit_button("Submit for review", type="primary")
     if submit:
@@ -401,9 +410,11 @@ def _create_report(client, workspace):
         slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:80] or "business-report"
         draft = _action(client, "/v1/artifacts", {"kind": kind, "filename": f"{slug}.{kind}", "title": title,
             "audience": audience, "purpose": purpose, "classification": classification,
+            "revision_of": revision.get("artifact_id"),
             "sections": [{"title": "Summary", "summary": summary, "source_ids": selected}],
             "sources": [{"source_id": key, "label": docs[key], "locator": "document://" + key} for key in selected]})
         if draft:
+            st.session_state.pop("revision_draft", None)
             st.session_state.notice = "Report submitted for independent review."
             _go("Reports", draft["artifact_id"])
 
@@ -412,7 +423,9 @@ def _report_detail(client, workspace, draft):
     spec = draft["spec"]
     st.divider()
     st.subheader(spec["title"])
-    st.caption(f"{draft['status'].title()} · {spec['classification'].title()} · Requested by {draft['requested_by']} · {_date(draft['created_at'])}")
+    st.caption(f"{draft['status'].title()} · Version {spec.get('report_version', 1)} · {spec['classification'].title()} · Requested by {draft['requested_by']} · {_date(draft['created_at'])}")
+    if spec.get("revision_of") and st.button("View previous version"):
+        _go("Reports", spec["revision_of"])
     left, right = st.columns([2, 1], gap="large")
     with left, st.container(border=True):
         st.caption("CONTENT PREVIEW")
@@ -464,9 +477,14 @@ def _report_detail(client, workspace, draft):
             if draft["status"] == "rendered" and st.button("Load approved file", type="primary"):
                 file = _load(client, f"/v1/artifacts/{draft['artifact_id']}/download")
                 if file is not None:
-                    st.download_button("Download " + spec["kind"].upper(), file, file_name=spec["filename"], type="primary")
+                    st.download_button("Download " + spec["kind"].upper(), file, file_name=spec["filename"], type="primary", on_click="ignore")
             if draft["status"] == "rejected":
-                st.caption("Create a revised report using the reviewer's feedback and submit it for a new decision.")
+                st.caption("Address the reviewer's feedback and submit a new version for independent review.")
+            if draft["status"] in {"rejected", "approved", "rendered"} and draft["requested_by"] == workspace["user_id"]:
+                if len(spec["sections"]) == 1 and not spec["sections"][0].get("table") and not spec["sections"][0].get("chart") and not spec["sections"][0].get("bullets"):
+                    if st.button("Create revised version"):
+                        st.session_state.revision_draft = draft
+                        _go("Reports", create="true")
 
 
 def _analyses(client, workspace):

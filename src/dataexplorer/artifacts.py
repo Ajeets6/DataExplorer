@@ -86,6 +86,16 @@ class ArtifactService:
     publisher: ArtifactPublisher | None = None
 
     async def create(self, spec: ArtifactSpec, access: AccessContext) -> ArtifactDraft:
+        version = 1
+        if spec.revision_of:
+            previous = await self.repository.get(spec.revision_of)
+            self._same_tenant(previous, access)
+            if previous.requested_by != access.user_id:
+                raise ArtifactPolicyError("only the report owner can create a revision")
+            if previous.status == "pending":
+                raise ArtifactPolicyError("wait for the current review before creating a revision")
+            version = previous.spec.report_version + 1
+        spec = spec.model_copy(update={"report_version": version})
         draft = ArtifactDraft(
             spec=spec,
             tenant_id=access.tenant_id,
@@ -123,6 +133,8 @@ class ArtifactService:
     async def render(self, artifact_id: str, access: AccessContext) -> ArtifactDraft:
         draft = await self.repository.get(artifact_id)
         self._same_tenant(draft, access)
+        if draft.requested_by != access.user_id and self.approver_group not in access.groups:
+            raise ArtifactPolicyError("caller cannot access this report")
         if draft.status != "approved":
             raise ArtifactPolicyError("artifact must be approved before rendering")
         renderer = self.renderers.get(draft.spec.kind)

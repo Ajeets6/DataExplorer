@@ -159,3 +159,41 @@ def test_failed_generation_is_visible_and_sanitized():
         assert summary["failed_requests"] == 1
         assert summary["unpriced_attempts"] == 1
         assert "sensitive" not in str(summary)
+
+
+def test_report_revision_preserves_previous_decision(tmp_path):
+    with TestClient(app_for(tmp_path)) as client:
+        author = headers()
+        reviewer = headers("reviewer", groups="content-approvers")
+        first = client.post("/v1/artifacts", headers=author, json=spec()).json()
+        report_id = first["artifact_id"]
+        assert client.post("/v1/artifacts", headers=author,
+                           json={**spec(), "revision_of": report_id}).status_code == 403
+        assert client.post(f"/v1/artifacts/{report_id}/decision", headers=reviewer,
+                           json={"approved": False, "reason": "Clarify the policy scope"}).status_code == 200
+        second = client.post("/v1/artifacts", headers=author,
+                             json={**spec(), "revision_of": report_id, "report_version": 999}).json()
+        assert second["spec"]["report_version"] == 2
+        assert second["status"] == "pending"
+        assert second["approved_by"] is None
+        assert second["artifact_id"] != report_id
+        assert client.get(f"/v1/artifacts/{report_id}", headers=author).json()["status"] == "rejected"
+        assert client.post("/v1/artifacts", headers=reviewer,
+                           json={**spec(), "revision_of": report_id}).status_code == 403
+
+
+def test_unpriced_chart_values_remain_unknown():
+    event = LlmTraceEvent(correlation_id="unpriced", tenant_id="acme", user_id="u", provider="test",
+                         model="test", operation="rag.query.attempt", estimated_cost_usd=None)
+    summary = dashboard([event])
+    assert summary["estimated_cost_usd"] is None
+    assert summary["series"][0]["estimated_cost_usd"] is None
+
+
+def test_unrelated_user_cannot_render_an_approved_report(tmp_path):
+    with TestClient(app_for(tmp_path)) as client:
+        draft = client.post("/v1/artifacts", headers=headers(), json=spec()).json()
+        path = "/v1/artifacts/" + draft["artifact_id"]
+        client.post(path + "/decision", headers=headers("reviewer", groups="content-approvers"),
+                    json={"approved": True, "reason": "Reviewed evidence"})
+        assert client.post(path + "/render", headers=headers("unrelated")).status_code == 403

@@ -628,7 +628,10 @@ def create_app(
         access: AccessContext = Depends(_access_context),
     ) -> ArtifactDraft:
         await _enforce(request, access, payload.model_dump_json())
-        draft = await _artifacts(request).create(payload, access)
+        try:
+            draft = await _artifacts(request).create(payload, access)
+        except ArtifactPolicyError as error:
+            raise HTTPException(403, str(error)) from error
         await _audit(
             request,
             access,

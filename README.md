@@ -33,6 +33,9 @@ review actions. Knowledge, saved answers, analyses, reports, and approvals have
 dedicated pages. Reports can be inspected, independently approved or rejected,
 rendered, and downloaded without copying identifiers. Text/Markdown uploads are
 limited to 1 MB; unsupported binary formats are not advertised as available.
+Report detail pages retain their selected record in the URL. Owners can create a
+revised version of a simple report after review; each revision needs a fresh
+independent decision and leaves the previous decision intact.
 
 The admin console provides UTC date filters, period comparisons, generation
 trends, request details, sanitized CSV exports, cost coverage, audit search, and
@@ -43,6 +46,8 @@ Production must apply both `migrations/001_governance.sql` and
 `migrations/002_workspace.sql`. The included migration worker applies all SQL
 files in order. With PostgreSQL enabled, workspace records persist across API
 restarts; development memory mode persists only for the running API process.
+Documents indexed before the workspace catalog was introduced must be reingested
+through the document API to appear in the library and provide source previews.
 
 For enterprise UI sign-in, configure an OIDC identity gateway to forward a signed
 `Authorization: Bearer ...` token over the Streamlit connection. The FastAPI

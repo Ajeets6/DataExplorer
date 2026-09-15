@@ -200,6 +200,8 @@ class ArtifactSection(BaseModel):
 
 
 class ArtifactSpec(BaseModel):
+    revision_of: str | None = Field(default=None, max_length=200)
+    report_version: int = Field(default=1, ge=1)
     kind: Literal["docx", "pptx"]
     filename: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
     title: str = Field(min_length=1, max_length=300)

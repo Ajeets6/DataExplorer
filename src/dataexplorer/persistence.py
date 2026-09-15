@@ -24,7 +24,8 @@ class PostgresAuditSink:
                 (tenant_id, start, end, search, limit, offset),
             )
             columns = [c.name for c in cursor.description]
-            return [AuditEvent.model_validate(dict(zip(columns, row))) for row in await cursor.fetchall()]
+            return [AuditEvent.model_validate({**dict(zip(columns, row)), "event_id": str(row[0])})
+                    for row in await cursor.fetchall()]
 
     async def record(self, event: AuditEvent) -> None:
         async with await psycopg.AsyncConnection.connect(self.dsn) as connection:
@@ -85,7 +86,8 @@ class PostgresLlmTraceStore:
                 (tenant_id, start, end, provider, provider, model, model),
             )
             columns = [c.name for c in cursor.description]
-            return [LlmTraceEvent.model_validate(dict(zip(columns, row))) for row in await cursor.fetchall()]
+            return [LlmTraceEvent.model_validate({**dict(zip(columns, row)), "trace_id": str(row[0])})
+                    for row in await cursor.fetchall()]
 
     async def record(self, event: LlmTraceEvent) -> None:
         async with await psycopg.AsyncConnection.connect(self.dsn) as connection:

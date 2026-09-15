@@ -120,6 +120,13 @@ def register_workspace_routes(app, access_dependency) -> None:
         if kind == "answer":
             for citation in record.payload.get("response", {}).get("citations", []):
                 await request.app.state.workspace_store.get("document", citation["document_id"], access)
+        if kind == "result":
+            from dataexplorer.text2sql import SqlPolicyError
+            proposal = await request.app.state.text2sql_service.repository.get(record_id)
+            try:
+                request.app.state.text2sql_service._policy(proposal.schema_name, access)
+            except SqlPolicyError:
+                raise HTTPException(404, "Analysis is no longer accessible") from None
         return record
 
     async def reports(request, access, search="", offset=0, limit=25, status="", mine=False, review_queue=False):

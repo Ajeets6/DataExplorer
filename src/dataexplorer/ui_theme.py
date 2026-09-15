@@ -2,9 +2,10 @@ STYLE = """<style>
 :root {color-scheme:light;--ink:#172f40;--muted:#526575;--line:#dce4ea;--navy:#16354a;--teal:#087e83;}
 .stApp,[data-testid="stAppViewContainer"] {background:#f5f7fa;color:var(--ink);font-family:'Segoe UI',Arial,sans-serif;}
 [data-testid="stHeader"] {background:#f5f7fa;}
-[data-testid="stToolbar"],#MainMenu {display:none;}
+#MainMenu,[data-testid="stAppDeployButton"] {display:none;}
 [data-testid="stSidebar"] {background:#fff;border-right:1px solid var(--line);}
-[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {padding-top:1.4rem;}
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {padding:1rem 1.1rem 2rem;}
+[data-testid="stSidebarUserContent"]>[data-testid="stVerticalBlock"] {gap:.5rem;}
 .brand {padding:0 0 1.7rem;display:flex;flex-direction:column;gap:.4rem;color:var(--navy);}
 .brand b {font-size:1.45rem;letter-spacing:-.04em;}
 .brand span {font-size:.65rem;letter-spacing:.12em;color:var(--muted);}
@@ -19,6 +20,7 @@ p,label,[data-testid="stWidgetLabel"] p {color:var(--ink);}
 [data-testid="stCaptionContainer"] p {color:var(--muted)!important;font-size:.8rem;line-height:1.6;}
 [data-testid="stVerticalBlockBorderWrapper"]>div {border-color:var(--line)!important;border-radius:8px!important;}
 [data-testid="stVerticalBlockBorderWrapper"] {background:#fff;border-radius:8px;}
+[data-testid="stLayoutWrapper"]>[data-testid="stVerticalBlock"] {background:#fff;border-color:var(--line)!important;border-radius:8px;}
 [data-testid="stMetricLabel"] p {font-size:.8rem;color:var(--muted);}
 [data-testid="stMetricValue"] {font-size:2rem;color:var(--navy);font-weight:650;}
 button {border-radius:6px!important;min-height:40px;font-weight:550!important;}
@@ -27,6 +29,7 @@ button[kind="primary"] p,button[data-testid*="primary"] p,button[data-testid*="P
 button[kind="secondary"],button[data-testid*="secondary"] {background:#fff;color:var(--navy);border-color:var(--line);}
 button:disabled {opacity:.55!important;}
 input,textarea,[role="combobox"],[data-baseweb="select"]>div {background:#fff!important;color:var(--ink)!important;border-color:#b8c8d3!important;}
+input,textarea {border:1px solid #b8c8d3!important;border-radius:6px!important;}
 [data-testid="stTextInput"]>div,[data-testid="stTextArea"]>div {background:#fff!important;}
 [role="listbox"],[role="option"] {background:#fff!important;color:var(--ink)!important;}
 [data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:7px;overflow:hidden;}

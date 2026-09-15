@@ -14,6 +14,7 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app src ./src
 COPY --chown=app:app migrations ./migrations
+COPY --chown=app:app .streamlit ./.streamlit
 USER app
 EXPOSE 8080
 CMD ["uvicorn", "dataexplorer.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]

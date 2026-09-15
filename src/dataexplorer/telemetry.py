@@ -81,10 +81,11 @@ def dashboard(events):
     series, users = {}, {}
     for event in usage:
         day = event.occurred_at.strftime("%Y-%m-%d")
-        row = series.setdefault(day, {"date": day, "attempts": 0, "failures": 0, "estimated_cost_usd": 0.0})
+        row = series.setdefault(day, {"date": day, "attempts": 0, "failures": 0, "estimated_cost_usd": None})
         row["attempts"] += 1
         row["failures"] += event.status == "failed"
-        row["estimated_cost_usd"] += event.estimated_cost_usd or 0
+        if event.estimated_cost_usd is not None:
+            row["estimated_cost_usd"] = (row["estimated_cost_usd"] or 0) + event.estimated_cost_usd
         user = users.setdefault(event.user_id, {"user": event.user_id, "attempts": 0, "tokens": 0, "estimated_cost_usd": 0.0, "unpriced_attempts": 0})
         user["attempts"] += 1
         user["tokens"] += event.total_tokens
