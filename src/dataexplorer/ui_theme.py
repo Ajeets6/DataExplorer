@@ -23,6 +23,10 @@ p,label,[data-testid="stWidgetLabel"] p {color:var(--ink);}
 [data-testid="stLayoutWrapper"]>[data-testid="stVerticalBlock"] {background:#fff;border-color:var(--line)!important;border-radius:8px;}
 [data-testid="stMetricLabel"] p {font-size:.8rem;color:var(--muted);}
 [data-testid="stMetricValue"] {font-size:2rem;color:var(--navy);font-weight:650;}
+[class*="st-key-admin-kpi-"] {min-height:160px;}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:.3rem;}
+[data-testid="stSidebar"] [role="radiogroup"] label {padding:.55rem .7rem;border-radius:6px;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#e5f1f2;font-weight:650;}
 button {border-radius:6px!important;min-height:40px;font-weight:550!important;}
 button[kind="primary"],button[data-testid*="primary"],button[data-testid*="Primary"] {background:var(--navy)!important;color:#fff!important;border-color:var(--navy)!important;}
 button[kind="primary"] p,button[data-testid*="primary"] p,button[data-testid*="Primary"] p {color:#fff!important;}

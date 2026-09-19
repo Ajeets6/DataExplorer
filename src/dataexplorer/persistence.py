@@ -79,7 +79,7 @@ class PostgresLlmTraceStore:
             cursor = await connection.execute(
                 """SELECT trace_id, occurred_at, correlation_id, tenant_id, user_id,
                           operation, provider, model, status, input_tokens, output_tokens,
-                          total_tokens, estimated_cost_usd, latency_ms, grounded, citation_count, reflection_attempts
+                          total_tokens, estimated_cost_usd, latency_ms, grounded, citation_count, reflection_attempts, request_id
                    FROM llm_traces WHERE tenant_id=%s AND occurred_at >= %s AND occurred_at < %s
                    AND (%s='' OR provider=%s) AND (%s='' OR model=%s)
                    ORDER BY occurred_at DESC, trace_id DESC""",
@@ -97,16 +97,16 @@ class PostgresLlmTraceStore:
                     (trace_id, occurred_at, correlation_id, tenant_id, user_id,
                      operation, provider, model, status, input_tokens,
                      output_tokens, total_tokens, estimated_cost_usd, latency_ms,
-                     grounded, citation_count, reflection_attempts)
+                     grounded, citation_count, reflection_attempts, request_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     event.trace_id, event.occurred_at, event.correlation_id,
                     event.tenant_id, event.user_id, event.operation, event.provider,
                     event.model, event.status, event.input_tokens, event.output_tokens,
                     event.total_tokens, event.estimated_cost_usd, event.latency_ms,
-                    event.grounded, event.citation_count, event.reflection_attempts,
+                    event.grounded, event.citation_count, event.reflection_attempts, event.request_id,
                 ),
             )
 
@@ -117,7 +117,7 @@ class PostgresLlmTraceStore:
                 SELECT trace_id, occurred_at, correlation_id, tenant_id, user_id,
                        operation, provider, model, status, input_tokens,
                        output_tokens, total_tokens, estimated_cost_usd, latency_ms,
-                       grounded, citation_count, reflection_attempts
+                       grounded, citation_count, reflection_attempts, request_id
                 FROM llm_traces WHERE tenant_id = %s
                 ORDER BY occurred_at DESC LIMIT %s
                 """,
@@ -130,7 +130,7 @@ class PostgresLlmTraceStore:
                 tenant_id=row[3], user_id=row[4], operation=row[5], provider=row[6],
                 model=row[7], status=row[8], input_tokens=row[9], output_tokens=row[10],
                 total_tokens=row[11], estimated_cost_usd=row[12], latency_ms=row[13],
-                grounded=row[14], citation_count=row[15], reflection_attempts=row[16],
+                grounded=row[14], citation_count=row[15], reflection_attempts=row[16], request_id=row[17],
             )
             for row in rows
         ]

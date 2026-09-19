@@ -383,13 +383,18 @@ def _reports(client, workspace, approvals=False):
 
 def _create_report(client, workspace):
     revision = st.session_state.get("revision_draft", {})
+    if revision:
+        st.info(f"Revising {revision['spec']['title']}. The previous version and its review remain available.")
+        if st.button("Discard revision and start a new report"):
+            st.session_state.pop("revision_draft", None)
+            st.rerun()
     original = revision.get("spec", {})
     sources = _load(client, "/v1/library/document?limit=100")
     if sources is None:
         return
     docs = {row["record_id"]: row["title"] for row in sources["items"]}
     with st.form("new-report"):
-        st.subheader("New report")
+        st.subheader("Revised report" if revision else "New report")
         title = st.text_input("Report title", value=original.get("title", ""), placeholder="Quarterly operating brief")
         a, b = st.columns(2)
         audience = a.text_input("Audience", value=original.get("audience", ""), placeholder="Operations leadership")
@@ -397,7 +402,10 @@ def _create_report(client, workspace):
         summary = st.text_area("Report content", value=original.get("sections", [{}])[0].get("summary", ""), height=180, placeholder="Write the summary your evidence supports.")
         selected = st.multiselect("Supporting documents", list(docs),
             default=[s["source_id"] for s in original.get("sources", []) if s["source_id"] in docs], format_func=docs.get)
-        kind = st.selectbox("Format", workspace.get("report_formats", ["docx"]), format_func=str.upper)
+        formats = workspace.get("report_formats", ["docx"])
+        kind = st.selectbox("Format", formats,
+            index=formats.index(original["kind"]) if original.get("kind") in formats else 0,
+            format_func=str.upper)
         classifications = ["internal", "public", "confidential", "restricted"]
         classification = st.selectbox("Report classification", classifications,
             index=classifications.index(original.get("classification", "internal")))

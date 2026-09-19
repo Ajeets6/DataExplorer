@@ -56,6 +56,7 @@ class ObservedProvider:
             output_tokens = result.output_tokens or 0 if result else 0
             known = result is not None and result.input_tokens is not None and result.output_tokens is not None
             await self.store.record(LlmTraceEvent(
+                request_id=context["request_id"],
                 correlation_id=context["correlation_id"], tenant_id=context["access"].tenant_id,
                 user_id=context["access"].user_id, operation=context["operation"] + ".attempt",
                 provider=provider, model=model, status=outcome,
@@ -69,12 +70,15 @@ class ObservedProvider:
 def dashboard(events):
     """Use attempts for usage, completed request events for end-to-end latency/grounding."""
     attempts = [e for e in events if e.operation.endswith(".attempt")]
-    attempted_ids = {e.correlation_id for e in attempts}
+    # Legacy traces have no request ID; preserve their historical grouping.
+    def key(event):
+        return (event.tenant_id, event.user_id, event.request_id or event.correlation_id)
+    attempted_ids = {key(e) for e in attempts}
     completed = [e for e in events if not e.operation.endswith(".attempt")]
-    usage = attempts + [e for e in completed if e.correlation_id not in attempted_ids]
-    request_ids = {e.correlation_id for e in events}
-    failures = {e.correlation_id for e in usage if e.status == "failed"}
-    successes = {e.correlation_id for e in usage if e.status == "succeeded"}
+    usage = attempts + [e for e in completed if key(e) not in attempted_ids]
+    request_ids = {key(e) for e in events}
+    failures = {key(e) for e in usage if e.status == "failed"}
+    successes = {key(e) for e in usage if e.status == "succeeded"}
     failures -= successes
     grounded = [e for e in completed if e.grounded is not None]
     latencies = sorted(e.latency_ms for e in completed if e.operation == "rag.query")

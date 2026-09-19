@@ -197,3 +197,48 @@ def test_unrelated_user_cannot_render_an_approved_report(tmp_path):
         client.post(path + "/decision", headers=headers("reviewer", groups="content-approvers"),
                     json={"approved": True, "reason": "Reviewed evidence"})
         assert client.post(path + "/render", headers=headers("unrelated")).status_code == 403
+
+
+def test_report_evidence_access_is_required_throughout_workflow(tmp_path):
+    with TestClient(app_for(tmp_path)) as client:
+        author = headers()
+        reviewer = headers("reviewer", groups="content-approvers")
+        allowed_reviewer = headers("reviewer", groups="finance,content-approvers")
+        client.post("/v1/documents", headers=author, json={
+            "document_id": "policy", "title": "Finance policy", "text": "Rail travel is approved.",
+            "allowed_groups": ["finance"]})
+        payload = spec()
+        payload["sources"][0]["locator"] = "document://policy"
+        assert client.post("/v1/artifacts", headers=reviewer, json=payload).status_code == 403
+        draft = client.post("/v1/artifacts", headers=author, json=payload).json()
+        path = "/v1/artifacts/" + draft["artifact_id"]
+        assert client.get(path, headers=reviewer).status_code == 404
+        assert client.get("/v1/artifacts", headers=reviewer).json()["items"] == []
+        assert client.get("/v1/workspace/overview", headers=reviewer).json()["awaiting_review"] == 0
+        decision = {"approved": True, "reason": "Reviewed evidence"}
+        assert client.post(path + "/decision", headers=reviewer, json=decision).status_code == 403
+        assert client.post(path + "/decision", headers=allowed_reviewer, json=decision).status_code == 200
+        assert client.post(path + "/render", headers=reviewer).status_code == 403
+        assert client.post(path + "/render", headers=author).status_code == 200
+        assert client.get(path + "/download", headers=reviewer).status_code == 404
+        assert client.get(path + "/download", headers=allowed_reviewer).status_code == 200
+        # Revoking the author's source group also revokes the saved report.
+        assert client.get(path + "/download", headers=headers(groups="hr")).status_code == 404
+
+
+def test_reused_correlation_header_does_not_merge_requests():
+    app = app_for()
+    with TestClient(app) as client:
+        identity = {**headers(), "X-Correlation-ID": "shared-client-reference"}
+        client.post("/v1/documents", headers=identity, json={
+            "document_id": "policy", "title": "Travel policy", "text": "Rail travel is approved.",
+            "allowed_groups": ["finance"]})
+        for _ in range(2):
+            assert client.post("/v1/query", headers=identity, json={"question": "What rail travel is approved?"}).status_code == 200
+        events = app.state.trace_store.events
+        assert len({event.request_id for event in events}) == 2
+        assert all(event.request_id for event in events)
+        assert {event.correlation_id for event in events} == {"shared-client-reference"}
+        result = dashboard(events)
+        assert result["requests"] == 2
+        assert result["tokens"] == 50

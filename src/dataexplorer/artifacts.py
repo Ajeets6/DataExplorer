@@ -84,8 +84,19 @@ class ArtifactService:
     )
     approver_group: str = "content-approvers"
     publisher: ArtifactPublisher | None = None
+    evidence_store: object | None = None
+
+    async def require_evidence_access(self, spec: ArtifactSpec, access: AccessContext) -> None:
+        for source in spec.sources:
+            if source.locator.startswith("document://"):
+                document_id = source.locator[len("document://"):]
+                if self.evidence_store is None or not await self.evidence_store.list(
+                    "document", access, record_id=document_id, limit=1
+                ):
+                    raise ArtifactPolicyError("report evidence is unavailable or no longer accessible")
 
     async def create(self, spec: ArtifactSpec, access: AccessContext) -> ArtifactDraft:
+        await self.require_evidence_access(spec, access)
         version = 1
         if spec.revision_of:
             previous = await self.repository.get(spec.revision_of)
@@ -120,6 +131,7 @@ class ArtifactService:
             raise ArtifactPolicyError("requesters cannot approve their own artifact")
         if draft.status != "pending":
             raise ArtifactPolicyError("only pending artifacts can be reviewed")
+        await self.require_evidence_access(draft.spec, access)
         updated = draft.model_copy(
             update={
                 "status": "approved" if approved else "rejected",
@@ -133,6 +145,7 @@ class ArtifactService:
     async def render(self, artifact_id: str, access: AccessContext) -> ArtifactDraft:
         draft = await self.repository.get(artifact_id)
         self._same_tenant(draft, access)
+        await self.require_evidence_access(draft.spec, access)
         if draft.requested_by != access.user_id and self.approver_group not in access.groups:
             raise ArtifactPolicyError("caller cannot access this report")
         if draft.status != "approved":

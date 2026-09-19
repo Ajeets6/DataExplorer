@@ -119,9 +119,12 @@ requires configured Node and artifact-tool runtime paths.
 
 ## Production deployment
 
+See [Production setup](docs/PRODUCTION_SETUP.md) for release migrations and the
+organization sign-in gateway contract.
+
 Development uses in-memory defaults. Production requires PostgreSQL, Redis,
 Qdrant, and JWT identity with issuer, audience, and JWKS settings. Apply
-`migrations/001_governance.sql` through the included worker job.
+both `migrations/001_governance.sql` and `migrations/002_workspace.sql` through the included worker job.
 
 `infra/terraform` provisions Cloud Run and supporting Google Cloud services.
 Before deploying, create the remote-state bucket, copy `terraform.tfvars.example`,

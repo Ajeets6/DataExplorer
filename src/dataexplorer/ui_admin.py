@@ -116,20 +116,20 @@ def main():
 def _overview(result):
     cols = st.columns(5)
     previous = result["previous"]
-    with cols[0], st.container(border=True):
+    with cols[0], st.container(border=True, key="admin-kpi-0"):
         st.metric("Requests", f"{result['requests']:,}", f"{result['requests'] - previous['requests']:+,} vs previous")
-    with cols[1], st.container(border=True):
+    with cols[1], st.container(border=True, key="admin-kpi-1"):
         st.metric("Failed requests", _percentage(result["failure_rate"]))
         st.caption(f"{result['failed_requests']} of {result['requests']} requests")
-    with cols[2], st.container(border=True):
+    with cols[2], st.container(border=True, key="admin-kpi-2"):
         latency = result["p95_latency_ms"]
         st.metric("P95 response time", "—" if latency is None else f"{latency / 1000:.2f} s")
         st.caption(f"{result['latency_samples']} completed RAG responses")
-    with cols[3], st.container(border=True):
+    with cols[3], st.container(border=True, key="admin-kpi-3"):
         value = result["estimated_cost_usd"]
         st.metric("Estimated API cost", "—" if value is None else f"${value:,.4f}")
         st.caption("USD · Priced attempts only")
-    with cols[4], st.container(border=True):
+    with cols[4], st.container(border=True, key="admin-kpi-4"):
         st.metric("Grounded responses", _percentage(result["grounded_rate"]))
         st.caption(f"{result['grounded_samples']} eligible responses" if result["grounded_samples"] else "No eligible responses")
     if not result["requests"]:

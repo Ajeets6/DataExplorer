@@ -287,6 +287,7 @@ def create_app(
         application.state.artifact_service = artifact_service or build_artifact_service(
             settings
         )
+        application.state.artifact_service.evidence_store = application.state.workspace_store
         original_sql_provider = text2sql_service.provider if text2sql_service else None
         if text2sql_service:
             text2sql_service.provider = instrument_provider(
@@ -323,6 +324,7 @@ def create_app(
     async def correlation_id_middleware(request: Request, call_next):
         correlation_id = request.headers.get("X-Correlation-ID") or str(uuid4())
         request.state.correlation_id = correlation_id[:200]
+        request.state.request_id = str(uuid4())
         response: Response = await call_next(request)
         response.headers["X-Correlation-ID"] = request.state.correlation_id
         return response
@@ -438,6 +440,7 @@ def create_app(
             )
             await request.app.state.trace_store.record(
                 LlmTraceEvent(
+                    request_id=request.state.request_id,
                     correlation_id=request.state.correlation_id,
                     tenant_id=access.tenant_id,
                     user_id=access.user_id,
@@ -753,7 +756,7 @@ async def _access_context(
 
 
 async def _enforce(request: Request, access: AccessContext, text: str) -> None:
-    attempt_context.set({"correlation_id": request.state.correlation_id, "access": access,
+    attempt_context.set({"correlation_id": request.state.correlation_id, "request_id": request.state.request_id, "access": access,
                          "operation": "sql.propose" if request.url.path == "/v1/sql/proposals" else "rag.query"})
     try:
         await request.app.state.policy_enforcer.enforce(access, text)

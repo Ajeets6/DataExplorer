@@ -95,7 +95,9 @@ def register_workspace_routes(app, access_dependency) -> None:
     async def overview(request: Request, access: AccessContext = Depends(access_dependency)):
         store = request.app.state.workspace_store
         service = request.app.state.artifact_service
-        totals = await service.repository.summary(access, service.approver_group in access.groups)
+        totals = {"my_reports": len(await reports(request, access, mine=True, limit=None)),
+                  "awaiting_review": len(await reports(request, access, review_queue=True, limit=None))
+                  if service.approver_group in access.groups else 0}
         return {**totals, "documents": await store.count("document", access),
                 "saved_answers": await store.count("answer", access),
                 "updated_at": datetime.now(UTC).isoformat()}
@@ -130,9 +132,24 @@ def register_workspace_routes(app, access_dependency) -> None:
         return record
 
     async def reports(request, access, search="", offset=0, limit=25, status="", mine=False, review_queue=False):
-        return await request.app.state.artifact_service.repository.list_for(
-            access, approver=request.app.state.artifact_service.approver_group in access.groups,
-            search=search, offset=offset, limit=limit, status=status, mine=mine, review_queue=review_queue)
+        service = request.app.state.artifact_service
+        visible, scanned = [], 0
+        # Apply evidence authorization before pagination and workspace totals.
+        while True:
+            batch = await service.repository.list_for(
+                access, approver=service.approver_group in access.groups,
+                search=search, offset=scanned, limit=100, status=status, mine=mine, review_queue=review_queue)
+            for draft in batch:
+                try:
+                    await service.require_evidence_access(draft.spec, access)
+                except ArtifactPolicyError:
+                    continue
+                visible.append(draft)
+                if limit is not None and len(visible) >= offset + limit:
+                    return visible[offset:offset + limit]
+            if len(batch) < 100:
+                return visible[offset:] if limit is None else visible[offset:offset + limit]
+            scanned += len(batch)
 
     @app.get("/v1/artifacts", tags=["publishing"])
     async def report_library(request: Request, search: str = Query("", max_length=200),
@@ -153,6 +170,10 @@ def register_workspace_routes(app, access_dependency) -> None:
             draft.requested_by != access.user_id and service.approver_group not in access.groups
         ):
             raise HTTPException(404, "Report not found")
+        try:
+            await service.require_evidence_access(draft.spec, access)
+        except ArtifactPolicyError:
+            raise HTTPException(404, "Report not found") from None
         return draft
 
     @app.get("/v1/artifacts/{artifact_id}", tags=["publishing"])

@@ -389,6 +389,13 @@ resource "google_cloud_run_v2_service" "ui" {
   deletion_protection = true
   template {
     service_account = google_service_account.ui.email
+    vpc_access {
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network = google_compute_network.main.name
+        subnetwork = google_compute_subnetwork.main.name
+      }
+    }
     timeout         = "300s"
     scaling {
       min_instance_count = var.api_min_instances
@@ -407,6 +414,14 @@ resource "google_cloud_run_v2_service" "ui" {
         cpu_idle = true
       }
       ports { container_port = 8080 }
+      env {
+        name  = "DATAEXPLORER_AUTH_MODE"
+        value = "jwt"
+      }
+      env {
+        name  = "DATAEXPLORER_LOGIN_URL"
+        value = var.login_url
+      }
       env {
         name  = "DATAEXPLORER_API_URL"
         value = google_cloud_run_v2_service.api[0].uri
@@ -440,6 +455,13 @@ resource "google_cloud_run_v2_service" "admin_ui" {
   deletion_protection = true
   template {
     service_account = google_service_account.admin_ui.email
+    vpc_access {
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network = google_compute_network.main.name
+        subnetwork = google_compute_subnetwork.main.name
+      }
+    }
     timeout         = "300s"
     scaling {
       min_instance_count = 0
@@ -458,6 +480,14 @@ resource "google_cloud_run_v2_service" "admin_ui" {
         cpu_idle = true
       }
       ports { container_port = 8080 }
+      env {
+        name  = "DATAEXPLORER_AUTH_MODE"
+        value = "jwt"
+      }
+      env {
+        name  = "DATAEXPLORER_LOGIN_URL"
+        value = var.login_url
+      }
       env {
         name  = "DATAEXPLORER_API_URL"
         value = google_cloud_run_v2_service.api[0].uri

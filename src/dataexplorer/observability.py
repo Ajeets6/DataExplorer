@@ -22,6 +22,7 @@ class LlmTraceEvent(BaseModel):
     trace_id: str = Field(default_factory=lambda: str(uuid4()))
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     correlation_id: str
+    request_id: str | None = None
     tenant_id: str
     user_id: str
     operation: str

@@ -7,3 +7,5 @@ oidc_audience = "dataexplorer-api"
 qdrant_url     = "https://your-cluster.region.qdrant.io:6333"
 # Set true only after database/OpenAI/Qdrant secret versions have been added.
 deploy_workloads = false
+
+login_url = "https://workspace.example.com/oauth2/start"

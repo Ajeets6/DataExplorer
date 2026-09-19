@@ -13,3 +13,12 @@ variable "deploy_workloads" {
   type    = bool
   default = false
 }
+
+variable "login_url" {
+  type = string
+  description = "HTTPS organization gateway sign-in URL for both workspace UIs."
+  validation {
+    condition = can(regex("^https://[^/]+", var.login_url))
+    error_message = "login_url must be an HTTPS organization sign-in URL."
+  }
+}

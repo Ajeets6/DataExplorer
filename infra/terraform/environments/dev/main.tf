@@ -6,6 +6,7 @@ module "platform" {
   image            = var.image
   billing_account  = var.billing_account
   oidc_jwks_url    = var.oidc_jwks_url
+  login_url         = var.login_url
   oidc_issuer      = var.oidc_issuer
   oidc_audience    = var.oidc_audience
   qdrant_url       = var.qdrant_url
