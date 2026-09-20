@@ -31,8 +31,8 @@ dev = [
 
 [project.scripts]
 dataexplorer = "dataexplorer.__main__:main"
-dataexplorer-ui = "dataexplorer.ui:main"
-dataexplorer-admin = "dataexplorer.ui_admin:main"
+dataexplorer-ui = "dataexplorer.ui_launch:workspace"
+dataexplorer-admin = "dataexplorer.ui_launch:admin"
 
 [build-system]
 requires = ["hatchling"]
